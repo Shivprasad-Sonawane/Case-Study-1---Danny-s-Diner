@@ -150,22 +150,81 @@ C       |          360  |
 ## 10. In the first week after a customer joins the program (including their join date) they earn 2x points on all items, 
 ## not just sushi - how many points do customer A and B have at the end of January?
 ```sql
-select customer, sum(member_points) as member_points
-from
-(select s.customer_id as customer, count(s.product_id) as total_item,
-case when m.product_name = 'sushi' then  count(s.product_id)*m.price*20
-	 when m.product_name = 'curry' then  count(s.product_id)*m.price*20
-	 when m.product_name = 'ramen' then  count(s.product_id)*m.price*20
-	 else 0 end as member_points
-from sales s join menu m
-on s.product_id = m.product_id join members mem
-on s.customer_id = mem.customer_id
-where s.order_date >= mem.join_date and order_date <= '2021-01-31'
-group by s.customer_id, m.product_name, m.price) mem_jan_points
-group by customer
+select m.customer_id as customer,
+sum(case when s.order_date < m.join_date then 
+		case when mem.product_name = 'sushi' then (mem.price * 20) else (mem.price * 10) end
+			when s.order_date > dateadd(day, 6, m.join_date) then 
+		case when mem.product_name = 'sushi' then (mem.price * 20) else (mem.price * 10) end
+	else (mem.price * 20) end) as member_points
+from members as m join sales as s 
+on s.customer_id = m.customer_id join menu as mem
+on s.product_id = mem.product_id
+WHERE s.order_date <= '2021-01-31'
+GROUP BY m.customer_id
 ```
 *Result:*
 customer|member_points|
 --------|-------------|
-A       |       1020  |
-B       |        440  |
+A       |       1370  |
+B       |        820  |
+
+
+# Bonus Questions
+
+### 11. Join All The Things
+```sql
+select s.customer_id, s.order_date, m.product_name, m.price,
+case when s.customer_id in (mem.customer_id) and s.order_date >= mem.join_date then 'Y' else 'N' end as member
+from sales s left join menu m
+on s.product_id = m.product_id left join members mem
+on s.customer_id = mem.customer_id
+```
+*Result:*
+customer_id  |order_date|product_id|price|member|
+-------------|----------|----------|-----|------|
+A	     |2021-01-01|     sushi|   10|     N|
+A	     |2021-01-01|     curry|   15|     N|
+A	     |2021-01-07|     curry|   15|     Y|
+A	     |2021-01-10|     ramen|   12|     Y|
+A	     |2021-01-11|     curry|   15|     Y|
+A	     |2021-01-11|     ramen|   12|     Y|
+B	     |2021-01-01|     curry|   15|     N|
+B	     |2021-01-02|     curry|   15|     N|
+B	     |2021-01-04|     sushi|   10|     N|
+B	     |2021-01-11|     sushi|   10|     Y|
+B	     |2021-01-16|     ramen|   12|     Y|
+B	     |2021-02-01|     ramen|   12|     Y|
+C	     |2021-01-01|     ramen|   12|     N|
+C	     |2021-01-01|     ramen|   12|     N|
+C	     |2021-01-07|     ramen|   12|     N|
+
+
+### Rank All The Things
+```sql
+select *,
+case when member = 'Y' then rank() over(partition by m.customer, member order by order_date) else null end as ranking
+from 
+(select s.customer_id as customer, s.order_date, m.product_name, m.price,
+case when s.customer_id in (mem.customer_id) and s.order_date >= mem.join_date then 'Y' else 'N' end as member
+from sales s left join menu m
+on s.product_id = m.product_id left join members mem
+on s.customer_id = mem.customer_id) m
+```
+*Result:*
+customer_id  |order_date|product_id|price|member|ranking|
+-------------|----------|----------|-----|------|-------|
+A	     |2021-01-01|     sushi|   10|     N|NULL   |
+A	     |2021-01-01|     curry|   15|     N|NULL   |
+A	     |2021-01-07|     curry|   15|     Y|1      |
+A	     |2021-01-10|     ramen|   12|     Y|2      |
+A	     |2021-01-11|     curry|   15|     Y|3      |
+A	     |2021-01-11|     ramen|   12|     Y|3      |
+B	     |2021-01-01|     curry|   15|     N|NULL   |
+B	     |2021-01-02|     curry|   15|     N|NULL   |
+B	     |2021-01-04|     sushi|   10|     N|NULL   |
+B	     |2021-01-11|     sushi|   10|     Y|1      |
+B	     |2021-01-16|     ramen|   12|     Y|2      |
+B	     |2021-02-01|     ramen|   12|     Y|3      |
+C	     |2021-01-01|     ramen|   12|     N|NULL   |
+C	     |2021-01-01|     ramen|   12|     N|NULL   |
+C	     |2021-01-07|     ramen|   12|     N|NULL   |
