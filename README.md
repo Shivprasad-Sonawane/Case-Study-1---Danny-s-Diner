@@ -16,3 +16,6 @@ Danny has shared with you 3 key datasets for this case study:
 - sales
 - menu
 - members
+
+### [Entity Relationship Diagram 👈](https://dbdiagram.io/d/608d07e4b29a09603d12edbd/?utm_source=dbdiagram_embed&utm_medium=bottom_open)
+![](https://github.com/Shivprasad-Sonawane/Case-Study-1-Dannys-Diner/blob/main/ERD.png?raw=true "Optional title")
